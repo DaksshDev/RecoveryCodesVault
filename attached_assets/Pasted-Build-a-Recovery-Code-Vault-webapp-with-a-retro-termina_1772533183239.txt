@@ -1,0 +1,69 @@
+Build a Recovery Code Vault webapp with a retro terminal UI using vgui.css (old green Steam / Goldsource aesthetic).
+Setup (run in Replit shell first):
+git clone https://github.com/AlpyneDreams/vgui.css.git public/vgui
+Link in index.html:
+html<link rel="stylesheet" href="/vgui/styles/greensteam.css">
+
+What it does:
+A personal vault to store and manage one-time recovery/backup codes for various services. Full working app, not a prototype.
+
+Complete UI Flow:
+Main Dashboard:
+
+Grid of service cards
+Each card shows: service favicon (clearbit API: https://logo.clearbit.com/github.com), service name, remaining/total codes counter (eg. "12/16 remaining"), green progress bar showing codes remaining, low codes warning badge when 3 or fewer remain
+"Add Service" button to add new ones
+Click any service card = opens that service's detail view
+
+Service Detail View:
+
+Back button to dashboard
+Service name + icon header
+Remaining codes counter (big and visible)
+Big "GET CODE" button (primary action)
+When GET CODE is clicked:
+
+App randomly picks one unused code from the pool
+Shows it in a highlighted terminal style box (monospace, green, obvious)
+Copy button next to it
+"Mark as Used" confirmation button below
+User copies code, clicks Mark as Used
+Code is permanently marked used and disappears from available pool
+Counter updates immediately
+If user clicks away without marking used = code goes back to unused pool (safety measure)
+
+
+Used codes section (collapsed by default, expandable) showing struck-through used codes with timestamp of when used
+"Add more codes" button = textarea to paste new batch of codes (newline separated), submit adds them to unused pool
+"Delete Service" button with confirmation dialog
+
+Add Service Flow:
+
+Modal/panel opens
+Input: Service name
+Input: paste codes (newline separated textarea)
+Submit = creates service card on dashboard
+
+Low Codes Warning:
+
+When 3 or fewer codes remain = service card shows red urgent warning
+Inside service detail = big red banner "WARNING: ONLY X CODES REMAINING. GENERATE NEW CODES NOW."
+
+
+Preloaded service templates (empty placeholders, 0 codes, ready to add):
+GitHub, Google, Discord, Notion, NPM, Twitter/X, Dropbox, Heroku, Cloudflare, GitLab, Bitbucket, Vercel, Railway, Netlify, Stripe, AWS, Digital Ocean, Fastmail
+
+Storage: localStorage (all data persists between sessions)
+
+UI Rules:
+
+ONLY use vgui.css classes from demo_greensteam.html inside cloned folder
+Monospace font everywhere
+Old Steam green terminal aesthetic throughout
+Scanline feel
+No Tailwind, no Bootstrap, no other CSS frameworks
+Minimal custom CSS only where vgui.css doesn't cover
+All interactions feel snappy, no unnecessary animations
+
+
+Stack: React + Vite + vgui.css only
