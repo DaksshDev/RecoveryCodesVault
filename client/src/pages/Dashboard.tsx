@@ -85,7 +85,32 @@ export default function Dashboard() {
                 autoFocus
               />
               
-              <label style={{ marginTop: 10 }}>Recovery Codes (one per line):</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                <label>Recovery Codes (one per line):</label>
+                <button 
+                  type="button" 
+                  style={{ fontSize: 10, padding: '2px 8px' }}
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.txt';
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const content = event.target?.result as string;
+                          setNewServiceCodes(content);
+                        };
+                        reader.readAsText(file);
+                      }
+                    };
+                    input.click();
+                  }}
+                >
+                  Import .txt
+                </button>
+              </div>
               <textarea 
                 value={newServiceCodes} 
                 onChange={e => setNewServiceCodes(e.target.value)}

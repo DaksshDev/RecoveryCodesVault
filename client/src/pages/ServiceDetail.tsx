@@ -70,6 +70,15 @@ export default function ServiceDetail() {
       )}
 
       <div className="window" name={`${service.name} Vault`}>
+        <div className="titlebar" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button 
+            type="button" 
+            style={{ height: 20, width: 24, padding: 0, lineHeight: '18px' }} 
+            onClick={() => setLocation('/')}
+          >
+            x
+          </button>
+        </div>
         <div className="flex-between">
           <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
             <img 
@@ -166,7 +175,32 @@ export default function ServiceDetail() {
               <button type="button" style={{ height: 20, width: 24, padding: 0, lineHeight: '18px' }} onClick={() => setShowAddCodes(false)}>x</button>
             </div>
             <div className="flex-column" style={{ padding: 15 }}>
-              <p style={{ margin: '0 0 10px 0' }}>Paste new codes for <strong>{service.name}</strong> (one per line):</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <p style={{ margin: 0 }}>Paste new codes for <strong>{service.name}</strong> (one per line):</p>
+                <button 
+                  type="button" 
+                  style={{ fontSize: 10, padding: '2px 8px' }}
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.txt';
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const content = event.target?.result as string;
+                          setNewCodes(content);
+                        };
+                        reader.readAsText(file);
+                      }
+                    };
+                    input.click();
+                  }}
+                >
+                  Import .txt
+                </button>
+              </div>
               <textarea 
                 value={newCodes} 
                 onChange={e => setNewCodes(e.target.value)}
