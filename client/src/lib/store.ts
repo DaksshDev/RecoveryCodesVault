@@ -29,7 +29,7 @@ const DEFAULT_SERVICES = [
   return {
     id: name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
     name,
-    icon: `https://logo.clearbit.com/${domain}`,
+    icon: `https://www.google.com/s2/favicons?domain=${domain}&sz=256`,
     codes: [],
     usedCodes: []
   };
@@ -66,7 +66,7 @@ export function useServices() {
     const newService: Service = {
       id,
       name,
-      icon: `https://logo.clearbit.com/${domain}`,
+      icon: `https://www.google.com/s2/favicons?domain=${domain}&sz=256`,
       codes,
       usedCodes: []
     };
