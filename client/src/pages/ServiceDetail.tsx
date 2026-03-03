@@ -1,19 +1,66 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback, DragEvent, ChangeEvent } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import { useServices } from '../lib/store';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+  DialogPortal,
+  DialogOverlay,
+} from '../components/ui/dialog';
 
 export default function ServiceDetail() {
   const [, params] = useRoute('/service/:id');
   const [, setLocation] = useLocation();
-  const { services, updateServiceCodes, deleteService, addMoreCodes } = useServices();
-  
+  const { services, updateServiceCodes, clearServiceCodes, addMoreCodes } = useServices();
+
   const service = services.find(s => s.id === params?.id);
-  
+
   const [activeCode, setActiveCode] = useState<string | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showAddCodes, setShowAddCodes] = useState(false);
   const [newCodes, setNewCodes] = useState('');
   const [usedCodesCollapsed, setUsedCodesCollapsed] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const parseFile = useCallback((file: File) => {
+    if (!file.name.endsWith('.txt')) return;
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      setNewCodes(content);
+    };
+    reader.readAsText(file);
+  }, []);
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) parseFile(file);
+  }, [parseFile]);
+
+  const handleFileChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) parseFile(file);
+    e.target.value = '';
+  }, [parseFile]);
 
   if (!service) {
     return (
@@ -44,9 +91,9 @@ export default function ServiceDetail() {
 
   const handleMarkUsed = () => {
     if (activeCode) {
-      const newCodes = service.codes.filter(c => c !== activeCode);
+      const nc = service.codes.filter(c => c !== activeCode);
       const newUsed = [...service.usedCodes, { code: activeCode, usedAt: new Date().toISOString() }];
-      updateServiceCodes(service.id, newCodes, newUsed);
+      updateServiceCodes(service.id, nc, newUsed);
       setActiveCode(null);
     }
   };
@@ -55,13 +102,16 @@ export default function ServiceDetail() {
     if (newCodes.trim()) {
       addMoreCodes(service.id, newCodes);
       setNewCodes('');
+      setFileName(null);
       setShowAddCodes(false);
     }
   };
 
+  const lineCount = newCodes.trim() ? newCodes.split('\n').filter(l => l.trim()).length : 0;
+
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', paddingBottom: 40 }}>
-      <button onClick={() => setLocation('/')} style={{ marginBottom: 20 }}>&lt; Dashboard</button>
+      <button onClick={() => setLocation('/')} style={{ marginBottom: 20 }}>{'<'} Dashboard</button>
 
       {isLow && (
         <div className="red-banner">
@@ -69,29 +119,50 @@ export default function ServiceDetail() {
         </div>
       )}
 
-      <div className="window" name={`${service.name} Vault`}>
-        <div className="titlebar" style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button 
-            type="button" 
-            style={{ height: 20, width: 24, padding: 0, lineHeight: '18px' }} 
-            onClick={() => setLocation('/')}
-          >
-            x
-          </button>
-        </div>
+      <div className="window" name={`${service.name} Vault`} style={{ position: 'relative' }}>
+        {/* Functional Titlebar Close Button - Positioned exactly over the 'x' in the titlebar */}
+        <button 
+          type="button"
+          onClick={() => setLocation('/')}
+          style={{ 
+            position: 'absolute', 
+            top: 0, 
+            right: 0, 
+            width: 25, 
+            height: 18, 
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            zIndex: 20,
+            padding: 0,
+            color: 'transparent',
+            outline: 'none'
+          }} 
+          title="Close Window"
+          aria-label="Close"
+        />
+
         <div className="flex-between">
           <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-            <img 
-              src={service.icon} 
-              alt={service.name} 
+            <img
+              src={service.icon}
+              alt={service.name}
               className="service-icon"
               style={{ width: 48, height: 48, padding: 6 }}
               onError={(e) => {
                 (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect width="48" height="48" fill="%232a2c27"/><text x="24" y="30" font-size="20" text-anchor="middle" fill="%23888">?</text></svg>';
               }}
             />
-            <div>
-              <h1 style={{ margin: 0, fontSize: 32 }}>{service.name}</h1>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <h1 style={{ 
+                margin: 0, 
+                fontSize: 32, 
+                whiteSpace: 'nowrap', 
+                overflow: 'hidden', 
+                textOverflow: 'ellipsis' 
+              }}>
+                {service.name}
+              </h1>
               <div style={{ fontSize: 12, color: '#aaa', marginTop: 4, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <progress value={remaining} max={totalCodes || 1} style={{ width: 150, height: 12 }}></progress>
                 {remaining} / {totalCodes} remaining
@@ -103,16 +174,25 @@ export default function ServiceDetail() {
         <hr style={{ margin: '30px 0' }} />
 
         {!activeCode ? (
-          <div style={{ textAlign: 'center', padding: '40px 0' }}>
-            <button 
-              onClick={handleGetCode} 
+          <div style={{ textAlign: 'center', padding: '30px 0' }}>
+            <p style={{ color: '#9d9d9d', fontSize: 13, marginBottom: 20 }}>
+              Clicking this button will pick a random <span style={{ color: '#fff', fontWeight: 'bold' }}>UNUSED</span> code from the list of codes.
+            </p>
+            <button
+              onClick={handleGetCode}
               disabled={remaining === 0}
-              style={{ 
-                padding: '20px 50px', 
-                fontSize: 28, 
+              className="greensteam-button"
+              style={{
+                padding: '15px 40px',
+                fontSize: 24,
+                height: 'auto',
+                width: 'auto',
                 cursor: remaining === 0 ? 'not-allowed' : 'pointer',
                 fontWeight: 'bold',
-                boxShadow: remaining > 0 ? '0 4px 10px rgba(0,0,0,0.5)' : 'none'
+                textAlign: 'center',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
             >
               {remaining === 0 ? 'NO CODES AVAILABLE' : 'GET CODE'}
@@ -162,83 +242,230 @@ export default function ServiceDetail() {
         </div>
 
         <div style={{ display: 'flex', gap: 15, marginTop: 40, justifyContent: 'space-between' }}>
-          <button onClick={() => setShowAddCodes(true)}>Add More Codes</button>
-          <button onClick={() => setShowDeleteConfirm(true)} style={{ color: '#ff5555' }}>Delete Service</button>
+          <button onClick={() => { setShowAddCodes(true); setNewCodes(''); setFileName(null); }}>Add More Codes</button>
+          <button onClick={() => setShowClearConfirm(true)} style={{ color: '#ffaaaa' }}>Clear All Codes</button>
         </div>
       </div>
 
-      {showAddCodes && (
-        <div className="modal-overlay">
-          <div className="window headless modal-content">
-            <div className="titlebar" style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Add More Codes</span>
-              <button type="button" style={{ height: 20, width: 24, padding: 0, lineHeight: '18px' }} onClick={() => setShowAddCodes(false)}>x</button>
-            </div>
-            <div className="flex-column" style={{ padding: 15 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <p style={{ margin: 0 }}>Paste new codes for <strong>{service.name}</strong> (one per line):</p>
-                <button 
-                  type="button" 
-                  style={{ fontSize: 10, padding: '2px 8px' }}
-                  onClick={() => {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = '.txt';
-                    input.onchange = (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                          const content = event.target?.result as string;
-                          setNewCodes(content);
-                        };
-                        reader.readAsText(file);
-                      }
-                    };
-                    input.click();
-                  }}
-                >
-                  Import .txt
-                </button>
-              </div>
-              <textarea 
-                value={newCodes} 
-                onChange={e => setNewCodes(e.target.value)}
-                rows={8}
-                autoFocus
-                placeholder="XXXX-XXXX-XXXX"
-              />
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 15 }}>
-                <button onClick={() => setShowAddCodes(false)}>Cancel</button>
-                <button onClick={handleAddMore}>Add Codes</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Add More Codes Dialog ── */}
+      <Dialog open={showAddCodes} onOpenChange={(open) => { setShowAddCodes(open); if (!open) { setFileName(null); setNewCodes(''); } }}>
+        <DialogPortal>
+          <DialogOverlay style={{ zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} />
+          <DialogContent 
+            className="window"
+            style={{ 
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 10002,
+              width: '100%',
+              maxWidth: 560, 
+              background: '#4c5844', 
+              border: '1px solid #899281',
+              borderBottom: '1px solid #292d23',
+              borderRight: '1px solid #292d23',
+              borderRadius: 0,
+              padding: 15,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 15,
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            {/* Functional Titlebar Close Button for Modal */}
+            <button 
+              type="button"
+              onClick={() => setShowAddCodes(false)}
+              style={{ 
+                position: 'absolute', 
+                top: 0, 
+                right: 0, 
+                width: 25, 
+                height: 18, 
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                zIndex: 20,
+                padding: 0,
+                color: 'transparent',
+                outline: 'none'
+              }} 
+              title="Close Modal"
+              aria-label="Close"
+            />
+            <DialogHeader>
+              <DialogTitle style={{ fontFamily: 'inherit', fontSize: 16, color: 'white', textTransform: 'uppercase', letterSpacing: 2 }}>
+                Add More Codes — {service.name}
+              </DialogTitle>
+            </DialogHeader>
 
-      {showDeleteConfirm && (
-        <div className="modal-overlay">
-          <div className="window headless modal-content">
-            <div className="titlebar" style={{ background: '#800' }}>Confirm Deletion</div>
-            <div className="flex-column" style={{ padding: 15 }}>
-              <p style={{ margin: '0 0 10px 0' }}>Are you sure you want to delete <strong>{service.name}</strong>? This will remove all remaining unused codes and history.</p>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 15 }}>
-                <button onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
-                <button 
-                  onClick={() => {
-                    deleteService(service.id);
-                    setLocation('/');
-                  }} 
-                  style={{ color: '#ff5555' }}
-                >
-                  Yes, Delete Service
-                </button>
-              </div>
+            {/* Hidden native file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+
+            {/* Drag & Drop zone */}
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                border: `2px dashed ${isDragging ? '#55ff55' : '#899281'}`,
+                borderRadius: 0,
+                padding: '28px 20px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                background: isDragging ? 'rgba(85,255,85,0.06)' : 'rgba(0,0,0,0.1)',
+                transition: 'border-color 0.15s, background 0.15s',
+                userSelect: 'none',
+              }}
+            >
+              {fileName ? (
+                <div>
+                  <div style={{ fontSize: 32, marginBottom: 6 }}>📄</div>
+                  <div style={{ color: '#white', fontWeight: 'bold' }}>{fileName}</div>
+                  <div style={{ color: '#ccc', fontSize: 12, marginTop: 4 }}>
+                    {lineCount} code{lineCount !== 1 ? 's' : ''} detected — click to change file
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>📁</div>
+                  <div style={{ color: '#ccc', fontWeight: 'bold' }}>Drop a .txt file here</div>
+                  <div style={{ color: '#888', fontSize: 12, marginTop: 4 }}>or click to browse</div>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-      )}
+
+            {/* Divider */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#ccc', fontSize: 11, margin: '4px 0' }}>
+              <div style={{ flex: 1, height: 1, background: '#292d23' }} />
+              <span>OR PASTE MANUALLY</span>
+              <div style={{ flex: 1, height: 1, background: '#292d23' }} />
+            </div>
+
+            {/* Textarea preview / manual input */}
+            <textarea
+              value={newCodes}
+              onChange={e => setNewCodes(e.target.value)}
+              rows={7}
+              placeholder="XXXX-XXXX-XXXX&#10;YYYY-YYYY-YYYY"
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                resize: 'none',
+                fontFamily: 'monospace',
+                fontSize: 13,
+                background: '#3e4637',
+                border: '1px solid #292d23',
+                borderBottom: '1px solid #899281',
+                borderRight: '1px solid #899281',
+                color: 'white'
+              }}
+            />
+
+            {lineCount > 0 && (
+              <div style={{ fontSize: 11, color: '#ccc', textAlign: 'right', marginTop: -8 }}>
+                {lineCount} code{lineCount !== 1 ? 's' : ''} ready to add
+              </div>
+            )}
+
+            <DialogFooter style={{ gap: 10, marginTop: 5 }}>
+              <button
+                type="button"
+                className="greensteam-button"
+                onClick={handleAddMore}
+                disabled={!newCodes.trim()}
+                style={{ 
+                  opacity: newCodes.trim() ? 1 : 0.45,
+                  minWidth: 150,
+                  height: 30,
+                  textAlign: 'center'
+                }}
+              >
+                IMPORT {lineCount > 0 ? `${lineCount} ` : ''}CODES
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
+
+      {/* ── Clear Codes Confirm Dialog ── */}
+      <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <DialogPortal>
+          <DialogOverlay style={{ zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+          <DialogContent 
+            className="window"
+            style={{ 
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 10002,
+              width: '100%',
+              maxWidth: 440, 
+              background: '#4c5844', 
+              border: '1px solid #aa3333',
+              borderRadius: 0,
+              padding: 15,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 15
+            }}
+          >
+            {/* Functional Titlebar Close Button for Modal */}
+            <button 
+              type="button"
+              onClick={() => setShowClearConfirm(false)}
+              style={{ 
+                position: 'absolute', 
+                top: 0, 
+                right: 0, 
+                width: 25, 
+                height: 18, 
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                zIndex: 20,
+                padding: 0,
+                color: 'transparent',
+                outline: 'none'
+              }} 
+              title="Close Modal"
+              aria-label="Close"
+            />
+            <DialogHeader>
+              <DialogTitle style={{ fontFamily: 'inherit', fontSize: 15, color: '#ffaaaa', textTransform: 'uppercase', letterSpacing: 2 }}>
+                Confirm Clear Content
+              </DialogTitle>
+            </DialogHeader>
+            <p style={{ margin: 0, color: 'white', fontSize: 13 }}>
+              Are you sure you want to clear all codes for <strong>{service.name}</strong>?
+              This will wipe all remaining unused codes and used history. 
+              The service entry will remain.
+            </p>
+            <DialogFooter style={{ gap: 10, marginTop: 5 }}>
+              <DialogClose asChild>
+                <button type="button">Cancel</button>
+              </DialogClose>
+              <button
+                type="button"
+                onClick={() => { clearServiceCodes(service.id); setShowClearConfirm(false); }}
+                style={{ color: '#ffaaaa', minWidth: 150 }}
+              >
+                Clear All Codes
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
     </div>
   );
 }

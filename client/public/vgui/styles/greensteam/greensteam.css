@@ -336,10 +336,10 @@ input[type=range].ticks::after {
   width: 100%;
   height: 18px;
   line-height: 18px;
-  text-indent: 24px;
-  background-image: url("steamico.png"), url("minimize.png"), url("close.png");
+  text-indent: 8px;
+  background-image: url("minimize.png"), url("close.png");
   background-repeat: no-repeat;
-  background-position: top left, top right 20px, top right;
+  background-position: right 20px top, right 4px top;
 }
 .window:not(.headless):before {
   content: attr(name);

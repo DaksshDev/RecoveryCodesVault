@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useServices } from '../lib/store';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+  DialogPortal,
+  DialogOverlay,
+} from '../components/ui/dialog';
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -20,13 +29,24 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', paddingBottom: 40 }}>
-      <div className="flex-between" style={{ marginBottom: 30 }}>
-        <h1 style={{ margin: 0, textShadow: '2px 2px #000' }}>Recovery Code Vault</h1>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 20px', paddingBottom: 60, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="flex-between" style={{ marginBottom: 30, alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ margin: 0, textShadow: '2px 2px #000' }}>Recovery Code Vault</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 15, marginTop: 5 }}>
+            <span style={{ fontSize: 12, color: '#888', fontWeight: 'bold' }}>By DaksshDev</span>
+            <button 
+              onClick={() => window.open('https://github.com/DaksshDev/RecoveryCodesVault.git', '_blank')}
+              style={{ padding: '2px 8px', fontSize: 10, minWidth: 'auto', background: '#3e4637' }}
+            >
+              View Source
+            </button>
+          </div>
+        </div>
         <button onClick={() => setShowAddModal(true)} style={{ padding: '8px 16px' }}>Add Service</button>
       </div>
 
-      <div className="grid-container">
+      <div className="grid-container" style={{ flex: 1 }}>
         {services.map(service => {
           const totalCodes = service.codes.length + service.usedCodes.length;
           const remaining = service.codes.length;
@@ -62,34 +82,70 @@ export default function Dashboard() {
         })}
       </div>
 
-      {showAddModal && (
-        <div className="modal-overlay">
-          <div className="window headless modal-content">
-            <div className="titlebar" style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Add New Service</span>
-              <button 
-                type="button" 
-                style={{ height: 20, width: 24, padding: 0, lineHeight: '18px' }} 
-                onClick={() => setShowAddModal(false)}
-              >
-                x
-              </button>
-            </div>
-            <form onSubmit={handleAddSubmit} className="flex-column" style={{ padding: '15px' }}>
-              <label>Service Name:</label>
+      <footer style={{ 
+        marginTop: 60, 
+        padding: '30px 0', 
+        borderTop: '1px solid #292d23', 
+        textAlign: 'center',
+        color: '#888',
+        fontSize: 13
+      }}>
+        <p style={{ margin: '0 0 10px 0' }}>By DaksshDev</p>
+        <p style={{ margin: '0 0 15px 0' }}>RecoveryCodesVault is open source!</p>
+        <button 
+          onClick={() => window.open('https://github.com/DaksshDev/RecoveryCodesVault.git', '_blank')}
+          style={{ padding: '4px 12px', fontSize: 12, minWidth: 'auto' }}
+        >
+          View Source
+        </button>
+      </footer>
+
+      {/* ── Add New Service Modal (Converted to Dialog) ── */}
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogPortal>
+          <DialogOverlay style={{ zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+          <DialogContent 
+            className="window"
+            style={{ 
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 10002,
+              width: '100%',
+              maxWidth: 450, 
+              background: '#4c5844', 
+              border: '1px solid #899281',
+              borderRadius: 0,
+              padding: 15,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 15,
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle style={{ fontFamily: 'inherit', fontSize: 16, color: 'white', textTransform: 'uppercase', letterSpacing: 2 }}>
+                Add New Service
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAddSubmit} className="flex-column">
+              <label style={{ fontSize: 13, color: '#ccc' }}>Service Name:</label>
               <input 
                 type="text" 
                 value={newServiceName} 
                 onChange={e => setNewServiceName(e.target.value)}
                 required 
                 autoFocus
+                style={{ width: '100%', background: '#3e4637', color: 'white', border: '1px solid #292d23' }}
               />
               
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-                <label>Recovery Codes (one per line):</label>
+                <label style={{ fontSize: 13, color: '#ccc' }}>Recovery Codes:</label>
                 <button 
                   type="button" 
-                  style={{ fontSize: 10, padding: '2px 8px' }}
+                  style={{ fontSize: 10, padding: '2px 8px', minWidth: 'auto' }}
                   onClick={() => {
                     const input = document.createElement('input');
                     input.type = 'file';
@@ -116,16 +172,26 @@ export default function Dashboard() {
                 onChange={e => setNewServiceCodes(e.target.value)}
                 rows={8}
                 placeholder="XXXX-XXXX-XXXX&#10;YYYY-YYYY-YYYY"
+                style={{ 
+                  width: '100%', 
+                  background: '#3e4637', 
+                  color: 'white', 
+                  border: '1px solid #292d23',
+                  resize: 'none',
+                  fontFamily: 'monospace'
+                }}
               />
               
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-                <button type="button" onClick={() => setShowAddModal(false)}>Cancel</button>
-                <button type="submit">Add Service</button>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10 }}>
+                <DialogClose asChild>
+                  <button type="button">Cancel</button>
+                </DialogClose>
+                <button type="submit" style={{ minWidth: 120 }}>Add Service</button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
     </div>
   );
 }

@@ -1,4 +1,9 @@
 import { useState, useEffect } from 'react';
+import CryptoJS from 'crypto-js';
+
+// In a real app, this should be a user-provided master password.
+// For this "client-side only" request, we use a fixed key.
+const ENCRYPTION_KEY = 'vgui-recovery-vault-secret-key';
 
 export interface UsedCode {
   code: string;
@@ -13,9 +18,9 @@ export interface Service {
   usedCodes: UsedCode[];
 }
 
-const DEFAULT_SERVICES = [
-  "GitHub", "Google", "Discord", "Notion", "NPM", "Twitter", "Dropbox", 
-  "Heroku", "Cloudflare", "GitLab", "Bitbucket", "Vercel", "Railway", 
+const DEFAULT_SERVICES: Service[] = [
+  "GitHub", "Google", "Discord", "Notion", "NPM", "Twitter", "Dropbox",
+  "Heroku", "Cloudflare", "GitLab", "Bitbucket", "Vercel", "Railway",
   "Netlify", "Stripe", "AWS", "Digital Ocean", "Fastmail"
 ].map(name => {
   const domainName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -36,20 +41,56 @@ const DEFAULT_SERVICES = [
 });
 
 export function useServices() {
-  const [services, setServices] = useState<Service[]>(() => {
-    try {
-      const stored = localStorage.getItem('recovery_vault_services');
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch (e) {
-      console.error("Failed to parse services from localStorage", e);
-    }
-    return DEFAULT_SERVICES;
-  });
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
+  const [services, setServices] = useState<Service[]>(DEFAULT_SERVICES);
 
+  // Load and Decrypt
   useEffect(() => {
-    localStorage.setItem('recovery_vault_services', JSON.stringify(services));
+    const hasLoadedBefore = localStorage.getItem('recovery_vault_has_loaded');
+    const loadingDuration = hasLoadedBefore ? 1100 : 2500;
+
+    setIsInitialLoading(true);
+
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+      if (!hasLoadedBefore) {
+        localStorage.setItem('recovery_vault_has_loaded', 'true');
+      }
+      loadData();
+    }, loadingDuration);
+
+    function loadData() {
+      try {
+        const encrypted = localStorage.getItem('recovery_vault_services_enc');
+        if (encrypted) {
+          const bytes = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
+          const decryptedData = bytes.toString(CryptoJS.enc.Utf8);
+          if (decryptedData) {
+            setServices(JSON.parse(decryptedData));
+          }
+        } else {
+          // Fallback for transition from unencrypted
+          const stored = localStorage.getItem('recovery_vault_services');
+          if (stored) {
+            setServices(JSON.parse(stored));
+          }
+        }
+      } catch (e) {
+        console.error("Failed to decrypt services", e);
+      }
+    }
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Encrypt and Save
+  useEffect(() => {
+    if (services !== DEFAULT_SERVICES) {
+      const encrypted = CryptoJS.AES.encrypt(JSON.stringify(services), ENCRYPTION_KEY).toString();
+      localStorage.setItem('recovery_vault_services_enc', encrypted);
+      // Clean up old unencrypted key if it exists
+      localStorage.removeItem('recovery_vault_services');
+    }
   }, [services]);
 
   const addService = (name: string, codesText: string) => {
@@ -62,7 +103,7 @@ export function useServices() {
     if (domainName === 'x') domain = 'x.com';
     if (domainName === 'digitalocean') domain = 'digitalocean.com';
     if (domainName === 'npm') domain = 'npmjs.com';
-    
+
     const newService: Service = {
       id,
       name,
@@ -85,7 +126,7 @@ export function useServices() {
       return s;
     }));
   };
-  
+
   const addMoreCodes = (id: string, codesText: string) => {
     const newCodes = codesText.split('\n').map(c => c.trim()).filter(Boolean);
     setServices(prev => prev.map(s => {
@@ -96,5 +137,14 @@ export function useServices() {
     }));
   };
 
-  return { services, addService, deleteService, updateServiceCodes, addMoreCodes };
+  const clearServiceCodes = (id: string) => {
+    setServices(prev => prev.map(s => {
+      if (s.id === id) {
+        return { ...s, codes: [], usedCodes: [] };
+      }
+      return s;
+    }));
+  };
+
+  return { services, isInitialLoading, addService, deleteService, updateServiceCodes, addMoreCodes, clearServiceCodes };
 }
